@@ -21,6 +21,7 @@ MANIFEST
 
 # PyInstaller
 *.spec
+!ResumeUnmark.spec
 
 # Testing
 .pytest_cache/
