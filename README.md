@@ -2,9 +2,6 @@
 
 # ResumeUnmark
 
-<!-- TODO: Add a real logo to docs/assets/logo.png -->
-![ResumeUnmark Logo](docs/assets/logo.png)
-
 **Remove bottom-right watermarks and isolated right-edge text from PDFs — locally, fast, and privacy-first.**
 
 [![Version](https://img.shields.io/badge/version-2.0.0-blue)](https://github.com/patrickzs/ResumeUnmark/releases)
@@ -35,7 +32,7 @@ Many resume builders and document sites add tiny logos, links, or copyright text
 ResumeUnmark removes these artifacts using **PDF redaction**:
 
 - 🧱 **Fixed bottom-right redaction**: reliably clears a configurable corner region (great for consistent “site logo” watermarks).
-- 🧠 **Smart right-edge detection**: detects small, isolated text blocks on the right side *below the body content* (great for “© site.com” style marks).
+- 🧠 **Smart right-edge detection**: detects small, isolated text blocks on the right side _below the body content_ (great for “© site.com” style marks).
 
 ### Why use this tool?
 
@@ -51,17 +48,17 @@ ResumeUnmark removes these artifacts using **PDF redaction**:
 - 🧼 **Dual-mode cleaning**
   - **Corner box**: deterministic removal for predictable watermarks
   - **Edge heuristic**: adaptive removal for shifting watermark positions
-- 📦 **Batch processing (Windows EXE)**: drag & drop files *or folders*; processes PDFs recursively.
+- 📦 **Batch processing (Windows EXE)**: drag & drop files _or folders_; processes PDFs recursively.
 - 🧾 **Safe outputs**: writes a new `*_clean.pdf` file; the original remains untouched.
 - 🛠 **Tunable defaults**: detection/removal constants live in `src/core/config.py`.
 
 ### Without vs. With ResumeUnmark
 
-|  | Without | With |
-|---|---|---|
-| Footer / edge watermark | ❌ Still visible | ✅ Redacted |
-| Batch folders | ❌ Manual | ✅ Drag & drop |
-| Privacy | ⚠️ Depends | ✅ Local-only |
+|                         | Without          | With           |
+| ----------------------- | ---------------- | -------------- |
+| Footer / edge watermark | ❌ Still visible | ✅ Redacted    |
+| Batch folders           | ❌ Manual        | ✅ Drag & drop |
+| Privacy                 | ⚠️ Depends       | ✅ Local-only  |
 
 > 🖼️ **Screenshots placeholder:** Add `docs/assets/before.png` and `docs/assets/after.png` and link them here.
 
@@ -100,17 +97,11 @@ flowchart TD
 
 ## 🧰 Installation & Prerequisites
 
-### Option A — Windows Desktop App (Recommended)
-
-1. Download `ResumeUnmark.exe` from Releases: https://github.com/patrickzs/ResumeUnmark/releases
-2. Put it anywhere (Desktop/Documents).
-3. Drag & drop PDF files or folders onto `ResumeUnmark.exe`.
-
-### Option B — Web UI (No install)
+### Option A — Web UI (No install)
 
 - Live Web UI: https://patrickzs.github.io/ResumeUnmark/
 
-### Option C — Run from source (Python)
+### Option B — Run from source (Python)
 
 **Prereqs**
 
@@ -137,13 +128,6 @@ No `.env` is required.
 ---
 
 ## ▶️ Running the Project (Usage)
-
-### Windows EXE (Drag & Drop)
-
-- Drag a PDF (or a folder containing PDFs) onto `ResumeUnmark.exe`
-- Outputs appear next to the source files as `*_clean.pdf`
-
-> 🎞️ **GIF placeholder:** Add a drag & drop demo GIF in `docs/assets/demo.gif`.
 
 ### CLI (from source)
 
@@ -185,23 +169,6 @@ python scripts/build.py
 Outputs:
 
 - `dist/ResumeUnmark.exe`
-
-### Build the EXE via GitHub Actions (CI/CD) using GitHub CLI
-
-Manual build (artifact only):
-
-```bash
-gh workflow run "Build EXE"
-gh run list --workflow "Build EXE" --limit 1
-gh run download <run-id> -n ResumeUnmark-windows-exe
-```
-
-Release build (tag push → GitHub Release asset):
-
-```bash
-git tag v2.0.1
-git push origin v2.0.1
-```
 
 ---
 
