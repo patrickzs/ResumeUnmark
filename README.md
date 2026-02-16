@@ -20,8 +20,8 @@ Optionally, the Web UI can also remove **small, isolated right-edge text** using
 flowchart LR
   A[PDF Input] -->|Select / Drag & Drop| B[ResumeUnmark]
   B --> C[Per-page cleaning]
-  C --> D[Write *_clean.pdf]
-  D --> E[Auto-download (Web) / Save next to original (EXE)]
+  C --> D["Write *_clean.pdf"]
+  D --> E["Auto-download (Web) / Save next to original (EXE)"]
 ```
 
 ---
