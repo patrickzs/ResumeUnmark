@@ -1,4 +1,4 @@
-# Universal PDF Watermark Remover
+# ResumeUnmark
 
 This is a simple, lightweight tool designed to remove stubborn watermarks and logos from the bottom-right corner of PDF files. It works universally by cleaning the target area, making it effective for resumes, documents, and other PDFs regardless of the specific watermark text.
 
@@ -13,15 +13,15 @@ This is a simple, lightweight tool designed to remove stubborn watermarks and lo
 ## Installation
 
 1. Go to the [Releases](../../releases) page.
-2. Download the latest `UniversalWatermarkRemover.exe`.
+2. Download the latest `ResumeUnmark.exe`.
 3. Place it anywhere on your computer (e.g., Desktop or Documents).
 
 ## How to Use
 
-### Method 1: hazardous Drag & Drop
+### Method 1: Drag & Drop
 
 1. Locate your PDF file(s) or a folder containing PDFs.
-2. Click and drag them onto the `UniversalWatermarkRemover.exe` file.
+2. Click and drag them onto the `ResumeUnmark.exe` file.
 3. The tool will automatically process the files.
 4. A new file ending in `_clean.pdf` will be created in the same location as the original.
 
@@ -30,7 +30,7 @@ This is a simple, lightweight tool designed to remove stubborn watermarks and lo
 You can also run the tool from the command prompt:
 
 ```bash
-UniversalWatermarkRemover.exe "path/to/your/file.pdf"
+ResumeUnmark.exe "path/to/your/file.pdf"
 ```
 
 ## Building from Source
@@ -44,14 +44,17 @@ If you prefer to run the Python script directly or build your own executable:
    ```
 3. **Run the Script:**
    ```bash
-   python universal_watermark_remover.py "path/to/your/file.pdf"
+   python ResumeUnmark.py "path/to/your/file.pdf"
    ```
 4. **Build Executable (Optional):**
    ```bash
    pip install pyinstaller
-   pyinstaller --onefile --name "UniversalWatermarkRemover" universal_watermark_remover.py
+   pyinstaller --onefile --name "ResumeUnmark" ResumeUnmark.py
    ```
 
 ## License
 
 MIT License. Free to use and distribute.
+
+
+
