@@ -34,47 +34,62 @@ def _rect_distance(a: fitz.Rect, b: fitz.Rect) -> float:
 def _find_edge_text_watermark_rects(
     page: fitz.Page,
     *,
-    min_right_ratio: float = EDGE_WATERMARK_MIN_RIGHT_RATIO,
-    min_down_ratio: float = EDGE_WATERMARK_MIN_DOWN_RATIO,
-    max_chars: int = EDGE_WATERMARK_MAX_CHARS,
-    min_distance: float = EDGE_WATERMARK_MIN_DISTANCE,
-    padding: float = EDGE_WATERMARK_PADDING,
+    max_chars: int = 40,
+    padding: float = 2.0,
 ) -> list[fitz.Rect]:
     """
-    Finds small "edge/footer" text blocks in the right-side whitespace and returns
-    their bounding boxes for redaction, regardless of text content.
-
-    Heuristic: redact small text blocks that are (a) on the right side, (b) below the
-    header area, and (c) sufficiently far from the main content blocks.
+    Finds small "edge/footer" text blocks in the right-side whitespace.
+    
+    New Robust Heuristic (matching web version):
+    1. Body content = text blocks starting in the LEFT half of the page (x < 50%).
+    2. Watermark = small text blocks in the RIGHT half (x >= 50%) that are
+       BELOW the bottom of the last body content.
     """
     page_rect = page.rect
-    min_x = page_rect.width * min_right_ratio
-    min_y = page_rect.height * min_down_ratio
-
+    half_width = page_rect.width * 0.5
+    
+    # Get all text blocks: (x0, y0, x1, y1, "text", block_no, block_type)
     blocks = page.get_text("blocks") or []
-    text_blocks: list[tuple[fitz.Rect, str]] = []
+    
+    # 1. Find the bottom of the "body" content (all text starting on the left)
+    last_body_y = 0.0
+    
     for b in blocks:
-        if len(b) < 7:
+        x0, y0, x1, y1, text, _, block_type = b[:7]
+        if block_type != 0:  # ignore images/graphics for body text calculations
             continue
-        x0, y0, x1, y1, text, _block_no, block_type = b[:7]
-        if block_type != 0:
-            continue
-        block_rect = fitz.Rect(x0, y0, x1, y1)
-        text_blocks.append((block_rect, (text or "").strip()))
-
-    body_rects: list[fitz.Rect] = [r for r, t in text_blocks if len(t) >= 60]
+        
+        # If block starts on the left side, it's part of the main document body
+        if x0 < half_width:
+            if text.strip(): # only count non-empty text
+                last_body_y = max(last_body_y, y1)
 
     redaction_rects: list[fitz.Rect] = []
-    for r, t in text_blocks:
-        if not t or len(t) > max_chars:
+    
+    # 2. Find candidates on the right side that are below the body content
+    for b in blocks:
+        x0, y0, x1, y1, text, _, block_type = b[:7]
+        text = (text or "").strip()
+        
+        # Must be text
+        if block_type != 0 or not text:
             continue
-        if r.x0 < min_x or r.y0 < min_y:
+            
+        # Must be small (watermark-like)
+        # remove spaces to verify length
+        if len(text.replace(" ", "")) > max_chars:
             continue
-        if body_rects:
-            nearest = min(_rect_distance(r, br) for br in body_rects)
-            if nearest < min_distance:
-                continue
-
+            
+        # Must be on the RIGHT side
+        if x0 < half_width:
+            continue
+            
+        # Must be BELOW the last line of the main body
+        if y0 < last_body_y:
+            continue
+            
+        # If it passes, mark it for redaction
+        r = fitz.Rect(x0, y0, x1, y1)
         padded_rect = fitz.Rect(r.x0 - padding, r.y0 - padding, r.x1 + padding, r.y1 + padding)
         redaction_rects.append(_clamp_rect_to_page(padded_rect, page_rect))
 

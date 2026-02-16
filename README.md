@@ -1,113 +1,115 @@
 # ResumeUnmark
 
-Remove bottom-right watermarks from PDFs — locally, fast, and privacy-first.
+Remove bottom-right watermarks and isolated right-edge text from PDFs — locally, fast, and privacy-first.
 
-ResumeUnmark provides:
-- A **Windows drag-and-drop app** (`ResumeUnmark.exe`) for batch processing files/folders.
-- A **static Web UI** (GitHub Pages) for “open site → drop PDF → download cleaned PDF” workflows.
+**ResumeUnmark** provides two powerful ways to clean your documents:
 
-**Live Web UI:** `https://patrickzs.github.io/ResumeUnmark/`
+1.  **Desktop App**: Drag & Drop batch processing for files and folders (Windows `.exe`).
+2.  **Web Interface**: A browser-based tool for quick, single-file cleaning (GitHub Pages).
 
-> Privacy by design: ResumeUnmark runs locally (desktop) or locally in your browser (web). No server uploads.
+**Live Web UI:** [https://patrickzs.github.io/ResumeUnmark/](https://patrickzs.github.io/ResumeUnmark/)
+
+> **Privacy Note:** All processing happens locally on your machine (whether using the Desktop App or the Web UI). Your files are never uploaded to any server.
 
 ---
 
 ## Introduction
 
-Many resume builders and document sites add small logos, links, or copyright text near the **bottom-right corner**. ResumeUnmark removes those marks by drawing a white rectangle over a configurable bottom-right region on each page.
+Many resume builders and document sites add small logos, links, or copyright text near the **bottom-right corner** or along the **right margin**. ResumeUnmark removes these distractions to give you a clean, professional PDF.
 
-Optionally, the Web UI can also remove **small, isolated right-edge text** using a heuristic (useful for “© site.com” style marks in whitespace).
+It uses two methods:
+
+1.  **Universal Bottom-Right Cleaning**: Removes everything in a fixed bottom-right area (e.g., standard site logos).
+2.  **Smart Right-Edge Detection**: Identifies and removes small, isolated text blocks in the right margin that sit below the main body content (e.g., "© site.com").
 
 ```mermaid
 flowchart LR
-  A[PDF Input] -->|Select / Drag & Drop| B[ResumeUnmark]
-  B --> C[Per-page cleaning]
-  C --> D["Write *_clean.pdf"]
-  D --> E["Auto-download (Web) / Save next to original (EXE)"]
+A[PDF Input] -->|Select / Drag & Drop| B[ResumeUnmark]
+B --> C{Analysis}
+C -->|Bottom-Right Area| D[Redact Fixed Box]
+C -->|Right-Edge Text| E[Redact Isolated Text]
+E --> F["Write *_clean.pdf"]
+F --> G["Auto-download (Web) / Save locally (EXE)"]
 ```
 
 ---
 
 ## Key Features
 
-- **Universal bottom-right cleaning**: removes text/images in a fixed bottom-right area (does not rely on matching watermark text).
-- **Batch support (EXE)**: drag folders or multiple PDFs onto the executable.
-- **One-click workflow (Web UI)**: drag/select a PDF, then **Clean & Download**.
-- **Optional right-edge text cleanup (Web UI)**: experimental heuristic for small watermark text in right-side whitespace.
-- **Predictable output**: writes a file ending with `_clean.pdf`.
+- **Dual Cleaning Mode**:
+  - **Fixed Area**: Automatically whitens out the bottom-right corner.
+  - **Smart Heuristic**: Detects small text blocks on the right half of the page that are _below_ the main body content (robust against resizing or shifting content).
+- **Batch Processing (Desktop App)**: Drag multiple PDFs or entire folders onto the application to clean them all at once.
+- **Recursive Folder Support**: When dropping a folder, it finds and processes all `.pdf` files inside.
+- **Safe Output**: Creates a new file ending in `_clean.pdf`, leaving your original file untouched.
+- **Zero Configuration**: Works out of the box for most common resume watermarks.
 
 ---
 
-## Installation
+## Installation & Usage
 
-### Option A: Windows `.exe` (recommended)
+### Option A: Windows Desktop App (Recommended for Batch)
 
-1. Go to **Releases**.
-2. Download `ResumeUnmark.exe`.
-3. Place it anywhere (Desktop/Documents).
+1.  **Download**: Go to [Releases](../../releases) and download `ResumeUnmark.exe`.
+2.  **Run**: Place it anywhere (Desktop/Documents).
+3.  **Use**:
+    - **Drag & Drop**: Drag PDF files or folders directly onto `ResumeUnmark.exe`.
+    - **Check Output**: Cleaned files (`*_clean.pdf`) will appear in the same folder as the originals.
 
-### Option B: Web UI (GitHub Pages)
+### Option B: Web UI (No Install)
 
-The web UI is a static site in `docs/`.
+1.  **Open**: Navigate to the [Live Web UI](https://patrickzs.github.io/ResumeUnmark/).
+2.  **Upload**: Drag & drop your PDF into the drop zone.
+3.  **Clean**: Click **Clean & Download**.
+4.  **Save**: The cleaned file is downloaded by your browser.
 
-1. Push this repo to GitHub.
-2. GitHub → **Settings → Pages**
-3. **Deploy from a branch** → choose branch (`main`/`master`) + folder `/docs`
-4. Open the published URL.
+_Note: The Web UI is perfect for one-off tasks on any device._
 
-Notes:
-- Processing happens locally in the browser (no uploads).
-- The selected file name + size appears inside the drop area.
-- If your resume has content near the far-right margin (e.g., a right sidebar), disable the experimental right-edge text option.
+### Option C: Run from Source (Python)
+
+If you prefer running the raw script or want to modify the code:
+
+1.  **Prerequisites**: Python 3.9+
+2.  **Install Dependencies**:
+    ```bash
+    pip install pymupdf
+    ```
+3.  **Run**:
+    ```bash
+    python ResumeUnmark.py "path/to/your/file.pdf"
+    ```
+    _Or drag files onto the script if you have Python file associations set up._
 
 ---
 
-## Running the Project
+## Building the Executable
 
-### Web UI (local preview)
+To build the standalone `.exe` yourself:
 
-From the repo root (the folder containing `ResumeUnmark/`), run:
+1.  Install PyInstaller:
+    ```bash
+    pip install pyinstaller
+    ```
+2.  Run the build command:
+    ```bash
+    pyinstaller --onefile --name "ResumeUnmark" ResumeUnmark.py
+    ```
+3.  Find your executable in the `dist/` folder.
 
-```bash
-cd ResumeUnmark
-python -m http.server 8000
-```
+---
 
-Open:
-- `http://localhost:8000/docs/`
+## How It Works (The Heuristic)
 
-### Web UI (usage)
+The "Smart Right-Edge Detection" algorithm follows these rules to identify watermarks without accidentally deleting your resume content:
 
-1. Open the site.
-2. Drag & drop a PDF (or click **Choose file**).
-3. Click **Clean & Download**.
-4. Your browser downloads `*_clean.pdf` automatically.
+1.  **Define Body Content**: Scans for text blocks that start on the **left half** of the page (x < 50%). The lowest point of this text defines the "Body Bottom".
+2.  **Identify Candidates**: Looks for text blocks on the **right half** (x >= 50%).
+3.  **Filter**: A block is considered a watermark if:
+    - It is **below** the "Body Bottom".
+    - It is **small** (short character count).
+    - It is **isolated** from other content.
 
-### Windows `.exe` (usage)
-
-**Drag & drop**
-1. Drag one or more PDFs (or a folder) onto `ResumeUnmark.exe`.
-2. Cleaned PDFs are created next to the originals as `*_clean.pdf`.
-
-**Command line**
-```bash
-ResumeUnmark.exe "path/to/file.pdf"
-```
-
-### From source (Python)
-
-Requirements: Python 3.9+ recommended.
-
-```bash
-pip install pymupdf
-python ResumeUnmark.py "path/to/file.pdf"
-```
-
-Build the `.exe` (optional):
-```bash
-pip install pyinstaller
-pyinstaller --onefile --name "ResumeUnmark" ResumeUnmark.py
-```
+This ensures that sidebars or right-aligned headers are preserved, while footer-style watermarks are removed.
 
 ---
 
@@ -117,13 +119,13 @@ Contributions are welcome — especially improvements to watermark detection heu
 
 ### How to contribute
 
-1. Fork the repo and create a feature branch.
-2. Keep changes focused and easy to review.
-3. Update documentation for user-visible behavior changes.
-4. Open a Pull Request with:
-   - what changed
-   - why it changed
-   - a before/after note (screenshots for UI changes help)
+1.  Fork the repo and create a feature branch.
+2.  Keep changes focused and easy to review.
+3.  Update documentation for user-visible behavior changes.
+4.  Open a Pull Request with:
+    - what changed
+    - why it changed
+    - a before/after note (screenshots for UI changes help)
 
 ### Development notes
 
@@ -136,6 +138,3 @@ Contributions are welcome — especially improvements to watermark detection heu
 ## License
 
 MIT. See `LICENSE` if present, otherwise treat this project as MIT-licensed per repository intent.
-
-
-

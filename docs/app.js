@@ -1,4 +1,4 @@
-import { PDFArray, PDFDocument, PDFName, rgb } from "https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/+esm";
+import { PDFDocument } from "https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/+esm";
 import * as pdfjsLib from "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.min.mjs";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc =
@@ -212,14 +212,13 @@ function itemToRectInViewport(item, viewport) {
 }
 
 async function findEdgeTextRects(pdfjsPage, viewport, pageWidth, pageHeight) {
-  const MIN_RIGHT_RATIO = 0.7;
-  const MIN_DOWN_RATIO = 0.35;
+  // Simple, robust watermark detection:
+  // Body content = text starting from LEFT side of page (x < 50%)
+  // Watermark = small text in right half, BELOW all left-side content
   const MAX_CHARS = 40;
-  const MIN_DISTANCE = 25.0;
-  const PADDING = 2.0;
 
-  const minX = pageWidth * MIN_RIGHT_RATIO;
-  const minY = pageHeight * MIN_DOWN_RATIO;
+  const scale = viewport.scale || 1;
+  const PADDING = 2.0 * scale;
 
   const textContent = await pdfjsPage.getTextContent();
   const items = (textContent.items || [])
@@ -231,13 +230,16 @@ async function findEdgeTextRects(pdfjsPage, viewport, pageWidth, pageHeight) {
     })
     .filter(({ rect }) => Number.isFinite(rect.x0) && Number.isFinite(rect.y0) && rect.x1 > rect.x0);
 
-  const bodyRects = items
-    .filter(({ text, rect }) => {
-      const compactLen = text.replace(/\s+/g, "").length;
-      const isWide = rect.x1 - rect.x0 >= pageWidth * 0.28;
-      return compactLen >= 20 || isWide;
-    })
-    .map(({ rect }) => rect);
+  // Find the bottom of the last LEFT-SIDE text (real body content).
+  // Body content always starts from the left half of the page.
+  // Watermarks are always on the right side.
+  const halfX = pageWidth * 0.50;
+  let lastLeftTextY = 0;
+  for (const { rect } of items) {
+    if (rect.x0 < halfX) {
+      lastLeftTextY = Math.max(lastLeftTextY, rect.y1);
+    }
+  }
 
   /** @type {{x0:number,y0:number,x1:number,y1:number}[]} */
   const redact = [];
@@ -245,18 +247,12 @@ async function findEdgeTextRects(pdfjsPage, viewport, pageWidth, pageHeight) {
   for (const { rect, text } of items) {
     const compactLen = text.replace(/\s+/g, "").length;
     if (compactLen === 0 || compactLen > MAX_CHARS) continue;
-    if (rect.x0 < minX || rect.y0 < minY) continue;
 
-    const rectW = rect.x1 - rect.x0;
-    const rectH = rect.y1 - rect.y0;
-    if (rectW > pageWidth * 0.30) continue;
-    if (rectH > 40) continue;
+    // Must be in right half of page
+    if (rect.x0 < halfX) continue;
 
-    if (bodyRects.length) {
-      let nearest = Infinity;
-      for (const br of bodyRects) nearest = Math.min(nearest, rectDistance(rect, br));
-      if (nearest < MIN_DISTANCE) continue;
-    }
+    // Must be BELOW all left-side content (watermark is at the end)
+    if (rect.y0 < lastLeftTextY) continue;
 
     const padded = clampRectToPage(
       { x0: rect.x0 - PADDING, y0: rect.y0 - PADDING, x1: rect.x1 + PADDING, y1: rect.y1 + PADDING },
@@ -274,126 +270,90 @@ async function cleanPdf(file, options) {
   const inputBytes = new Uint8Array(inputBuffer);
 
   logLine("Loading PDF…");
-  const pdfLibDoc = await PDFDocument.load(inputBytes);
 
-  let pdfjsDoc = null;
-  if (options.removeEdgeText) {
-    try {
-      pdfjsDoc = await pdfjsLib.getDocument({ data: inputBytes }).promise;
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      logLine(`Edge-text parsing unavailable for this PDF (${msg}). Continuing with bottom-right cleaning only.`);
-      pdfjsDoc = null;
-    }
-  }
+  // Use pdf.js to render pages — this is the only way to truly remove
+  // content like PyMuPDF's redaction.  We render each page to a canvas,
+  // white-out the watermark area at the pixel level, then rebuild a new
+  // PDF from the rendered images.
+  const RENDER_SCALE = 3; // high-quality rendering (216 DPI)
 
-  const pages = pdfLibDoc.getPages();
-  logLine(`Pages: ${pages.length}`);
+  const pdfjsDoc = await pdfjsLib.getDocument({ data: inputBytes }).promise;
+  const numPages = pdfjsDoc.numPages;
+  logLine(`Pages: ${numPages}`);
 
-  for (let i = 0; i < pages.length; i++) {
-    const pageNum = i + 1;
-    const page = pages[i];
-    const { width, height } = page.getSize();
+  // Create a brand-new output PDF
+  const outDoc = await PDFDocument.create();
 
+  for (let i = 1; i <= numPages; i++) {
+    const pdfjsPage = await pdfjsDoc.getPage(i);
+
+    // Get the original page size (in PDF points)
+    const origVp = pdfjsPage.getViewport({ scale: 1 });
+    const pageW = origVp.width;   // points
+    const pageH = origVp.height;  // points
+
+    // Render at higher resolution for quality
+    const viewport = pdfjsPage.getViewport({ scale: RENDER_SCALE });
+    const canvas = document.createElement("canvas");
+    canvas.width  = viewport.width;
+    canvas.height = viewport.height;
+    const ctx = canvas.getContext("2d");
+
+    // White background (some PDFs have transparent backgrounds)
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Render the full page onto the canvas
+    await pdfjsPage.render({ canvasContext: ctx, viewport }).promise;
+
+    // ---- Clean bottom-right area (canvas coords: origin top-left, same as PyMuPDF) ----
     if (options.boxWidth > 0 && options.boxHeight > 0) {
-      const x = Math.max(0, width - options.boxWidth);
-      const w = Math.min(options.boxWidth, width);
-      const h = Math.min(options.boxHeight, height);
-      const cleanedAreas = [{ x0: x, y0: 0, x1: x + w, y1: h }];
+      const bw = options.boxWidth  * RENDER_SCALE;
+      const bh = options.boxHeight * RENDER_SCALE;
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(canvas.width - bw, canvas.height - bh, bw, bh);
+      logLine(`Page ${i}: Cleaned bottom-right ${options.boxWidth}×${options.boxHeight} pt`);
+    }
 
-      page.drawRectangle({
-        x,
-        y: 0,
-        width: w,
-        height: h,
-        color: rgb(1, 1, 1),
-      });
-
-      if (options.removeEdgeText && pdfjsDoc) {
-        try {
-          const pdfjsPage = await pdfjsDoc.getPage(pageNum);
-          const viewport = pdfjsPage.getViewport({ scale: 1 });
-          const rects = await findEdgeTextRects(pdfjsPage, viewport, viewport.width, viewport.height);
-
+    // ---- Clean small right-edge text (same heuristic as before) ----
+    if (options.removeEdgeText) {
+      try {
+        const rects = await findEdgeTextRects(
+          pdfjsPage, viewport, canvas.width, canvas.height,
+        );
+        if (rects.length > 0) {
+          ctx.fillStyle = "#ffffff";
           for (const r of rects) {
-            const x0 = r.x0;
-            const y0 = height - r.y1; // convert top-left origin -> bottom-left origin
-            const w0 = r.x1 - r.x0;
-            const h0 = r.y1 - r.y0;
-
-            const rx = Math.max(0, Math.min(x0, width));
-            const ry = Math.max(0, Math.min(y0, height));
-            const rw = Math.max(0, Math.min(w0, width - rx));
-            const rh = Math.max(0, Math.min(h0, height - ry));
-            if (rw === 0 || rh === 0) continue;
-
-            page.drawRectangle({
-              x: rx,
-              y: ry,
-              width: rw,
-              height: rh,
-              color: rgb(1, 1, 1),
-            });
-
-            cleanedAreas.push({ x0: rx, y0: ry, x1: rx + rw, y1: ry + rh });
+            ctx.fillRect(r.x0, r.y0, r.x1 - r.x0, r.y1 - r.y0);
           }
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : String(err);
-          logLine(`Edge-text cleanup skipped on page ${pageNum} (${msg}).`);
+          logLine(`Page ${i}: Removed ${rects.length} edge-text fragment(s)`);
         }
-      }
-
-      if (options.removeAnnots) {
-        const removed = removeAnnotationsInRects(pdfLibDoc, page, cleanedAreas);
-        if (removed > 0) logLine(`Removed ${removed} annotation(s) on page ${pageNum}.`);
-      }
-    } else {
-      const cleanedAreas = [];
-
-      if (options.removeEdgeText && pdfjsDoc) {
-        try {
-          const pdfjsPage = await pdfjsDoc.getPage(pageNum);
-          const viewport = pdfjsPage.getViewport({ scale: 1 });
-          const rects = await findEdgeTextRects(pdfjsPage, viewport, viewport.width, viewport.height);
-
-          for (const r of rects) {
-            const x0 = r.x0;
-            const y0 = height - r.y1; // convert top-left origin -> bottom-left origin
-            const w0 = r.x1 - r.x0;
-            const h0 = r.y1 - r.y0;
-
-            const rx = Math.max(0, Math.min(x0, width));
-            const ry = Math.max(0, Math.min(y0, height));
-            const rw = Math.max(0, Math.min(w0, width - rx));
-            const rh = Math.max(0, Math.min(h0, height - ry));
-            if (rw === 0 || rh === 0) continue;
-
-            page.drawRectangle({
-              x: rx,
-              y: ry,
-              width: rw,
-              height: rh,
-              color: rgb(1, 1, 1),
-            });
-
-            cleanedAreas.push({ x0: rx, y0: ry, x1: rx + rw, y1: ry + rh });
-          }
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : String(err);
-          logLine(`Edge-text cleanup skipped on page ${pageNum} (${msg}).`);
-        }
-      }
-
-      if (options.removeAnnots && cleanedAreas.length > 0) {
-        const removed = removeAnnotationsInRects(pdfLibDoc, page, cleanedAreas);
-        if (removed > 0) logLine(`Removed ${removed} annotation(s) on page ${pageNum}.`);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        logLine(`Edge-text cleanup skipped on page ${i} (${msg}).`);
       }
     }
 
-    logLine(`Processed page ${pageNum}/${pages.length}`);
+    // ---- Convert canvas → JPEG bytes → embed in new PDF ----
+    const jpegBlob = await new Promise((resolve) =>
+      canvas.toBlob(resolve, "image/jpeg", 0.92),
+    );
+    const jpegBytes = new Uint8Array(await jpegBlob.arrayBuffer());
+    const img = await outDoc.embedJpg(jpegBytes);
+
+    // Add a page with the original PDF dimensions and draw the image
+    const page = outDoc.addPage([pageW, pageH]);
+    page.drawImage(img, {
+      x: 0,
+      y: 0,
+      width:  pageW,
+      height: pageH,
+    });
+
+    logLine(`Processed page ${i}/${numPages}`);
   }
 
-  const outBytes = await pdfLibDoc.save({ useObjectStreams: true });
+  const outBytes = await outDoc.save({ useObjectStreams: true });
   return outBytes;
 }
 
