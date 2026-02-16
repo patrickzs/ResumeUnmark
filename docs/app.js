@@ -1,4 +1,4 @@
-import { PDFDocument, rgb } from "https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/+esm";
+import { PDFArray, PDFDocument, PDFName, rgb } from "https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/+esm";
 import * as pdfjsLib from "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.min.mjs";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc =
@@ -12,6 +12,7 @@ const els = {
   boxWidth: document.getElementById("boxWidth"),
   boxHeight: document.getElementById("boxHeight"),
   removeEdgeText: document.getElementById("removeEdgeText"),
+  removeAnnots: document.getElementById("removeAnnots"),
   fileLabel: document.getElementById("fileLabel"),
   log: document.getElementById("log"),
 };
@@ -78,7 +79,8 @@ function getOptions() {
   const boxWidth = Math.max(0, Number.parseInt(els.boxWidth.value || "0", 10));
   const boxHeight = Math.max(0, Number.parseInt(els.boxHeight.value || "0", 10));
   const removeEdgeText = Boolean(els.removeEdgeText.checked);
-  return { boxWidth, boxHeight, removeEdgeText };
+  const removeAnnots = Boolean(els.removeAnnots && els.removeAnnots.checked);
+  return { boxWidth, boxHeight, removeEdgeText, removeAnnots };
 }
 
 function suggestOutputName(inputName) {
@@ -112,6 +114,83 @@ function clampRectToPage(r, pageWidth, pageHeight) {
     x1: Math.min(pageWidth, r.x1),
     y1: Math.min(pageHeight, r.y1),
   };
+}
+
+function rectsIntersect(a, b) {
+  return a.x0 < b.x1 && a.x1 > b.x0 && a.y0 < b.y1 && a.y1 > b.y0;
+}
+
+function pdfObjToNumber(obj) {
+  if (!obj) return null;
+  if (typeof obj.asNumber === "function") return obj.asNumber();
+  if (typeof obj.numberValue === "function") return obj.numberValue();
+  if (typeof obj.numberValue === "number") return obj.numberValue;
+  if (typeof obj.value === "number") return obj.value;
+  return null;
+}
+
+function safeLookup(context, obj) {
+  if (!obj) return null;
+  try {
+    return context.lookup(obj);
+  } catch {
+    return null;
+  }
+}
+
+function getPdfArraySize(arr) {
+  if (!arr) return 0;
+  if (typeof arr.size === "function") return arr.size();
+  if (typeof arr.size === "number") return arr.size;
+  if (typeof arr.length === "number") return arr.length;
+  return 0;
+}
+
+function removeAnnotationsInRects(pdfDoc, page, rects) {
+  if (!rects || rects.length === 0) return 0;
+  const context = pdfDoc.context;
+
+  const annotsObj = page.node.get(PDFName.of("Annots"));
+  const annots = safeLookup(context, annotsObj);
+  if (!(annots instanceof PDFArray)) return 0;
+
+  const kept = [];
+  let removed = 0;
+  const n = getPdfArraySize(annots);
+
+  for (let i = 0; i < n; i++) {
+    const ref = annots.get(i);
+    const annot = safeLookup(context, ref);
+    if (!annot || typeof annot.get !== "function") {
+      kept.push(ref);
+      continue;
+    }
+
+    const rectObj = annot.get(PDFName.of("Rect"));
+    const rectArr = safeLookup(context, rectObj);
+    if (!(rectArr instanceof PDFArray) || getPdfArraySize(rectArr) < 4) {
+      kept.push(ref);
+      continue;
+    }
+
+    const x0 = pdfObjToNumber(safeLookup(context, rectArr.get(0)));
+    const y0 = pdfObjToNumber(safeLookup(context, rectArr.get(1)));
+    const x1 = pdfObjToNumber(safeLookup(context, rectArr.get(2)));
+    const y1 = pdfObjToNumber(safeLookup(context, rectArr.get(3)));
+    if (![x0, y0, x1, y1].every((v) => Number.isFinite(v))) {
+      kept.push(ref);
+      continue;
+    }
+
+    const r = { x0: Math.min(x0, x1), y0: Math.min(y0, y1), x1: Math.max(x0, x1), y1: Math.max(y0, y1) };
+    const intersects = rects.some((cleanRect) => rectsIntersect(r, cleanRect));
+
+    if (intersects) removed++;
+    else kept.push(ref);
+  }
+
+  page.node.set(PDFName.of("Annots"), context.obj(kept));
+  return removed;
 }
 
 function itemToRectInViewport(item, viewport) {
@@ -217,44 +296,97 @@ async function cleanPdf(file, options) {
     const { width, height } = page.getSize();
 
     if (options.boxWidth > 0 && options.boxHeight > 0) {
+      const x = Math.max(0, width - options.boxWidth);
+      const w = Math.min(options.boxWidth, width);
+      const h = Math.min(options.boxHeight, height);
+      const cleanedAreas = [{ x0: x, y0: 0, x1: x + w, y1: h }];
+
       page.drawRectangle({
-        x: Math.max(0, width - options.boxWidth),
+        x,
         y: 0,
-        width: Math.min(options.boxWidth, width),
-        height: Math.min(options.boxHeight, height),
+        width: w,
+        height: h,
         color: rgb(1, 1, 1),
       });
-    }
 
-    if (options.removeEdgeText && pdfjsDoc) {
-      try {
-        const pdfjsPage = await pdfjsDoc.getPage(pageNum);
-        const viewport = pdfjsPage.getViewport({ scale: 1 });
-        const rects = await findEdgeTextRects(pdfjsPage, viewport, viewport.width, viewport.height);
+      if (options.removeEdgeText && pdfjsDoc) {
+        try {
+          const pdfjsPage = await pdfjsDoc.getPage(pageNum);
+          const viewport = pdfjsPage.getViewport({ scale: 1 });
+          const rects = await findEdgeTextRects(pdfjsPage, viewport, viewport.width, viewport.height);
 
-        for (const r of rects) {
-          const x0 = r.x0;
-          const y0 = height - r.y1; // convert top-left origin -> bottom-left origin
-          const w0 = r.x1 - r.x0;
-          const h0 = r.y1 - r.y0;
+          for (const r of rects) {
+            const x0 = r.x0;
+            const y0 = height - r.y1; // convert top-left origin -> bottom-left origin
+            const w0 = r.x1 - r.x0;
+            const h0 = r.y1 - r.y0;
 
-          const x = Math.max(0, Math.min(x0, width));
-          const y = Math.max(0, Math.min(y0, height));
-          const w = Math.max(0, Math.min(w0, width - x));
-          const h = Math.max(0, Math.min(h0, height - y));
-          if (w === 0 || h === 0) continue;
+            const rx = Math.max(0, Math.min(x0, width));
+            const ry = Math.max(0, Math.min(y0, height));
+            const rw = Math.max(0, Math.min(w0, width - rx));
+            const rh = Math.max(0, Math.min(h0, height - ry));
+            if (rw === 0 || rh === 0) continue;
 
-          page.drawRectangle({
-            x,
-            y,
-            width: w,
-            height: h,
-            color: rgb(1, 1, 1),
-          });
+            page.drawRectangle({
+              x: rx,
+              y: ry,
+              width: rw,
+              height: rh,
+              color: rgb(1, 1, 1),
+            });
+
+            cleanedAreas.push({ x0: rx, y0: ry, x1: rx + rw, y1: ry + rh });
+          }
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          logLine(`Edge-text cleanup skipped on page ${pageNum} (${msg}).`);
         }
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        logLine(`Edge-text cleanup skipped on page ${pageNum} (${msg}).`);
+      }
+
+      if (options.removeAnnots) {
+        const removed = removeAnnotationsInRects(pdfLibDoc, page, cleanedAreas);
+        if (removed > 0) logLine(`Removed ${removed} annotation(s) on page ${pageNum}.`);
+      }
+    } else {
+      const cleanedAreas = [];
+
+      if (options.removeEdgeText && pdfjsDoc) {
+        try {
+          const pdfjsPage = await pdfjsDoc.getPage(pageNum);
+          const viewport = pdfjsPage.getViewport({ scale: 1 });
+          const rects = await findEdgeTextRects(pdfjsPage, viewport, viewport.width, viewport.height);
+
+          for (const r of rects) {
+            const x0 = r.x0;
+            const y0 = height - r.y1; // convert top-left origin -> bottom-left origin
+            const w0 = r.x1 - r.x0;
+            const h0 = r.y1 - r.y0;
+
+            const rx = Math.max(0, Math.min(x0, width));
+            const ry = Math.max(0, Math.min(y0, height));
+            const rw = Math.max(0, Math.min(w0, width - rx));
+            const rh = Math.max(0, Math.min(h0, height - ry));
+            if (rw === 0 || rh === 0) continue;
+
+            page.drawRectangle({
+              x: rx,
+              y: ry,
+              width: rw,
+              height: rh,
+              color: rgb(1, 1, 1),
+            });
+
+            cleanedAreas.push({ x0: rx, y0: ry, x1: rx + rw, y1: ry + rh });
+          }
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          logLine(`Edge-text cleanup skipped on page ${pageNum} (${msg}).`);
+        }
+      }
+
+      if (options.removeAnnots && cleanedAreas.length > 0) {
+        const removed = removeAnnotationsInRects(pdfLibDoc, page, cleanedAreas);
+        if (removed > 0) logLine(`Removed ${removed} annotation(s) on page ${pageNum}.`);
       }
     }
 
@@ -289,7 +421,7 @@ async function run() {
   try {
     logLine(`Input: ${selectedFile.name}`);
     logLine(
-      `Options: bottom-right box ${options.boxWidth}x${options.boxHeight} pt; edge-text=${options.removeEdgeText}`,
+      `Options: bottom-right box ${options.boxWidth}x${options.boxHeight} pt; edge-text=${options.removeEdgeText}; annots=${options.removeAnnots}`,
     );
 
     const out = await cleanPdf(selectedFile, options);
