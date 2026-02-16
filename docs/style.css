@@ -1,18 +1,92 @@
 :root {
-  --bg: #0b1020;
-  --panel: rgba(255, 255, 255, 0.06);
-  --panel-2: rgba(255, 255, 255, 0.085);
-  --border: rgba(255, 255, 255, 0.12);
-  --text: rgba(255, 255, 255, 0.92);
-  --muted: rgba(255, 255, 255, 0.70);
-  --muted-2: rgba(255, 255, 255, 0.55);
-  --primary: #6ee7ff;
-  --primary-2: #4bb7ff;
-  --danger: #ff6e7a;
-  --shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
-  --radius: 16px;
+  color-scheme: light dark;
+
+  --mx: 50%;
+  --my: 20%;
+
+  --radius: 18px;
+  --radius-sm: 14px;
+  --blur: 22px;
+  --saturate: 1.55;
+
+
+  --bg0: #f5f5f7;
+  --bg1: #e9edf2;
+
+
+  --wall-a: rgba(0, 122, 255, 0.18);
+  --wall-b: rgba(88, 86, 214, 0.14);
+  --wall-c: rgba(100, 210, 255, 0.12);
+
+  --text: rgba(12, 14, 20, 0.92);
+  --muted: rgba(12, 14, 20, 0.62);
+  --muted-2: rgba(12, 14, 20, 0.50);
+
+  --glass: rgba(255, 255, 255, 0.62);
+  --glass-2: rgba(255, 255, 255, 0.46);
+  --glass-3: rgba(255, 255, 255, 0.32);
+  --border: rgba(18, 24, 40, 0.14);
+  --border-2: rgba(255, 255, 255, 0.68);
+
+  --rim0: rgba(255, 255, 255, 0.86);
+  --rim1: rgba(0, 122, 255, 0.22);
+  --rim2: rgba(88, 86, 214, 0.18);
+
+  --spec: rgba(255, 255, 255, 0.85);
+  --spec2: rgba(255, 255, 255, 0.14);
+
+  --tint1: rgba(0, 122, 255, 0.10);
+  --tint2: rgba(88, 86, 214, 0.07);
+
+  --primary: #007aff;
+  --primary-2: #5856d6;
+  --danger: #ff3b30;
+
+  --shadow: 0 18px 60px rgba(12, 18, 36, 0.18);
+  --shadow-2: 0 10px 30px rgba(12, 18, 36, 0.12);
+  --inset: inset 0 1px 0 rgba(255, 255, 255, 0.62);
+
   --font: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Apple Color Emoji",
     "Segoe UI Emoji";
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg0: #0b0c10;
+    --bg1: #111827;
+
+    --wall-a: rgba(10, 132, 255, 0.22);
+    --wall-b: rgba(94, 92, 230, 0.18);
+    --wall-c: rgba(100, 210, 255, 0.12);
+
+    --text: rgba(255, 255, 255, 0.92);
+    --muted: rgba(255, 255, 255, 0.70);
+    --muted-2: rgba(255, 255, 255, 0.55);
+
+    --glass: rgba(255, 255, 255, 0.095);
+    --glass-2: rgba(255, 255, 255, 0.070);
+    --glass-3: rgba(255, 255, 255, 0.050);
+    --border: rgba(255, 255, 255, 0.14);
+    --border-2: rgba(255, 255, 255, 0.22);
+
+    --rim0: rgba(255, 255, 255, 0.22);
+    --rim1: rgba(10, 132, 255, 0.22);
+    --rim2: rgba(94, 92, 230, 0.16);
+
+    --spec: rgba(255, 255, 255, 0.30);
+    --spec2: rgba(255, 255, 255, 0.08);
+
+    --tint1: rgba(10, 132, 255, 0.08);
+    --tint2: rgba(94, 92, 230, 0.06);
+
+    --shadow: 0 22px 70px rgba(0, 0, 0, 0.48);
+    --shadow-2: 0 10px 30px rgba(0, 0, 0, 0.32);
+    --inset: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+
+    --primary: #0a84ff;
+    --primary-2: #5e5ce6;
+    --danger: #ff453a;
+  }
 }
 
 * {
@@ -25,19 +99,36 @@ body {
 }
 
 body {
+  position: relative;
   margin: 0;
   font-family: var(--font);
   color: var(--text);
   background:
-    radial-gradient(1100px 700px at 15% 10%, rgba(110, 231, 255, 0.18), transparent 60%),
-    radial-gradient(900px 650px at 85% 25%, rgba(75, 183, 255, 0.18), transparent 55%),
-    radial-gradient(800px 600px at 50% 90%, rgba(255, 110, 122, 0.10), transparent 55%),
-    linear-gradient(180deg, #070a14, var(--bg));
+    radial-gradient(1200px 900px at var(--mx) var(--my), var(--wall-a), transparent 60%),
+    radial-gradient(1000px 760px at 86% 18%, var(--wall-b), transparent 62%),
+    radial-gradient(1100px 820px at 45% 112%, var(--wall-c), transparent 66%),
+    linear-gradient(180deg, var(--bg0), var(--bg1));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card,
+  .btn,
+  .dropzone {
+    transition: none;
+  }
+  .card:hover,
+  .btn:hover,
+  .dropzone:hover,
+  .dropzone.dragover {
+    transform: none;
+  }
 }
 
 .wrap {
   width: min(920px, calc(100% - 32px));
   margin: 32px auto 56px;
+  position: relative;
+  z-index: 1;
 }
 
 .header h1 {
@@ -47,7 +138,7 @@ body {
 }
 
 .sub {
-  margin: 0 0 22px;
+  margin: 0;
   color: var(--muted);
   line-height: 1.45;
 }
@@ -57,46 +148,134 @@ body {
   padding: 2px 10px;
   margin-left: 8px;
   border-radius: 999px;
-  border: 1px solid var(--border);
-  background: rgba(255, 255, 255, 0.06);
-  color: rgba(255, 255, 255, 0.82);
+  border: 1px solid transparent;
+  background:
+    linear-gradient(180deg, var(--glass), var(--glass-2)) padding-box,
+    linear-gradient(135deg, var(--rim0), var(--rim1), var(--rim2)) border-box;
+  color: var(--text);
+  color: color-mix(in srgb, var(--text) 88%, transparent);
   font-size: 12px;
   vertical-align: middle;
+  box-shadow: var(--inset);
 }
 
 .card {
-  background: var(--panel);
-  border: 1px solid var(--border);
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border: 1px solid transparent;
   border-radius: var(--radius);
-  box-shadow: var(--shadow);
+  background:
+    radial-gradient(900px 260px at var(--mx) var(--my), var(--spec2), transparent 58%) padding-box,
+    linear-gradient(180deg, var(--glass), var(--glass-2)) padding-box,
+    linear-gradient(135deg, var(--rim0), var(--rim1), var(--rim2)) border-box;
+  box-shadow: var(--shadow), var(--inset);
   padding: 16px;
   margin: 14px 0;
-  backdrop-filter: blur(8px);
+  backdrop-filter: blur(var(--blur)) saturate(calc(var(--saturate) * 100%)) contrast(1.06);
+  -webkit-backdrop-filter: blur(var(--blur)) saturate(calc(var(--saturate) * 100%)) contrast(1.06);
+  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.card::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  pointer-events: none;
+  background:
+    radial-gradient(850px 240px at 20% -8%, rgba(255, 255, 255, 0.72), transparent 56%),
+    radial-gradient(520px 220px at 90% 0%, rgba(255, 255, 255, 0.32), transparent 62%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.22), transparent 55%);
+  opacity: 0.55;
+  mix-blend-mode: screen;
+}
+
+.card::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  pointer-events: none;
+  background:
+    radial-gradient(520px 320px at var(--mx) var(--my), var(--tint1), transparent 62%),
+    radial-gradient(560px 360px at calc(var(--mx) + 18%) calc(var(--my) - 12%), var(--tint2), transparent 66%);
+  opacity: 0.55;
+  mix-blend-mode: soft-light;
+}
+
+.card:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow), var(--shadow-2), var(--inset);
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root {
+    --glass: rgba(255, 255, 255, 0.74);
+    --glass-2: rgba(255, 255, 255, 0.62);
+    --glass-3: rgba(255, 255, 255, 0.46);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --glass: rgba(255, 255, 255, 0.12);
+      --glass-2: rgba(255, 255, 255, 0.09);
+      --glass-3: rgba(255, 255, 255, 0.07);
+    }
+  }
 }
 
 .dropzone {
-  border: 1px dashed rgba(255, 255, 255, 0.22);
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border: 1px solid transparent;
   border-radius: var(--radius);
-  background: rgba(255, 255, 255, 0.04);
+  background:
+    radial-gradient(900px 240px at var(--mx) var(--my), var(--spec2), transparent 64%) padding-box,
+    linear-gradient(180deg, var(--glass-2), var(--glass-3)) padding-box,
+    linear-gradient(135deg, var(--rim0), var(--rim1), var(--rim2)) border-box;
   min-height: 160px;
   display: grid;
   place-items: center;
   padding: 18px;
   outline: none;
-  transition: border-color 140ms ease, background 140ms ease, transform 140ms ease;
+  transition: border-color 150ms ease, background 150ms ease, transform 150ms ease, box-shadow 150ms ease;
   cursor: pointer;
+  box-shadow: var(--inset);
+}
+
+.dropzone::after {
+  content: "";
+  position: absolute;
+  inset: 12px;
+  pointer-events: none;
+  border-radius: calc(var(--radius) - 12px);
+  border: 1px dashed rgba(255, 255, 255, 0.35);
+  border: 1px dashed color-mix(in srgb, var(--border) 70%, var(--border-2) 30%);
+  opacity: 0.75;
+  transition: opacity 150ms ease, border-color 150ms ease;
 }
 
 .dropzone:hover,
 .dropzone:focus-visible {
-  border-color: rgba(110, 231, 255, 0.65);
-  background: rgba(110, 231, 255, 0.06);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-2), var(--inset);
+}
+
+.dropzone:hover::after,
+.dropzone:focus-visible::after {
+  opacity: 0.95;
+  border-color: rgba(31, 139, 255, 0.55);
+  border-color: color-mix(in srgb, var(--primary) 55%, var(--border-2) 45%);
 }
 
 .dropzone.dragover {
-  border-color: rgba(110, 231, 255, 0.85);
-  background: rgba(110, 231, 255, 0.12);
-  transform: translateY(-1px);
+  transform: translateY(-1px) scale(1.01);
+  box-shadow: var(--shadow-2), var(--inset);
+}
+
+.dropzone.dragover::after {
+  opacity: 1;
+  border-color: rgba(31, 139, 255, 0.78);
+  border-color: color-mix(in srgb, var(--primary) 74%, var(--border-2) 26%);
 }
 
 .drop-inner {
@@ -117,11 +296,15 @@ body {
   margin-top: 12px;
   padding: 10px 12px;
   border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: rgba(0, 0, 0, 0.16);
+  border: 1px solid transparent;
+  background:
+    radial-gradient(700px 200px at var(--mx) var(--my), var(--spec2), transparent 68%) padding-box,
+    linear-gradient(180deg, var(--glass-2), var(--glass-3)) padding-box,
+    linear-gradient(135deg, var(--rim0), var(--rim1), var(--rim2)) border-box;
   max-width: min(540px, 100%);
   margin-left: auto;
   margin-right: auto;
+  box-shadow: var(--inset);
 }
 
 .drop-file-label {
@@ -155,33 +338,69 @@ body {
   align-items: center;
   justify-content: center;
   padding: 10px 14px;
-  border-radius: 12px;
-  border: 1px solid var(--border);
-  background: rgba(255, 255, 255, 0.06);
-  color: rgba(255, 255, 255, 0.9);
+  border-radius: var(--radius-sm);
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border: 1px solid transparent;
+  background:
+    radial-gradient(700px 180px at var(--mx) var(--my), var(--spec2), transparent 70%) padding-box,
+    linear-gradient(180deg, var(--glass), var(--glass-2)) padding-box,
+    linear-gradient(135deg, var(--rim0), var(--rim1), var(--rim2)) border-box;
+  color: var(--text);
+  color: color-mix(in srgb, var(--text) 90%, transparent);
   font-weight: 600;
   cursor: pointer;
   user-select: none;
-  transition: background 140ms ease, border-color 140ms ease, transform 140ms ease;
+  box-shadow: var(--inset);
+  transition: background 150ms ease, border-color 150ms ease, transform 150ms ease, box-shadow 150ms ease;
+}
+
+.btn::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.35), transparent 55%);
+  opacity: 0.6;
+  mix-blend-mode: screen;
 }
 
 .btn:hover {
-  background: rgba(255, 255, 255, 0.10);
-  border-color: rgba(255, 255, 255, 0.18);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-2), var(--inset);
 }
 
 .btn:active {
-  transform: translateY(1px);
+  transform: translateY(0px);
+}
+
+.btn:focus-visible {
+  outline: 2px solid rgba(31, 139, 255, 0.58);
+  outline: 2px solid color-mix(in srgb, var(--primary) 70%, white 30%);
+  outline-offset: 2px;
 }
 
 .btn.primary {
-  border-color: rgba(110, 231, 255, 0.35);
-  background: linear-gradient(180deg, rgba(110, 231, 255, 0.22), rgba(75, 183, 255, 0.14));
+  background:
+    radial-gradient(700px 180px at var(--mx) var(--my), rgba(255, 255, 255, 0.22), transparent 72%) padding-box,
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--primary) 36%, var(--glass) 64%),
+      color-mix(in srgb, var(--primary-2) 26%, var(--glass-2) 74%)
+    ) padding-box,
+    linear-gradient(135deg, var(--rim0), var(--rim1), var(--rim2)) border-box;
 }
 
 .btn.primary:hover {
-  border-color: rgba(110, 231, 255, 0.6);
-  background: linear-gradient(180deg, rgba(110, 231, 255, 0.28), rgba(75, 183, 255, 0.18));
+  background:
+    radial-gradient(700px 180px at var(--mx) var(--my), rgba(255, 255, 255, 0.26), transparent 72%) padding-box,
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--primary) 44%, var(--glass) 56%),
+      color-mix(in srgb, var(--primary-2) 32%, var(--glass-2) 68%)
+    ) padding-box,
+    linear-gradient(135deg, var(--rim0), var(--rim1), var(--rim2)) border-box;
 }
 
 .btn[disabled] {
@@ -192,7 +411,8 @@ body {
 .advanced summary {
   margin-top: 14px;
   cursor: pointer;
-  color: rgba(255, 255, 255, 0.86);
+  color: var(--text);
+  color: color-mix(in srgb, var(--text) 92%, transparent);
   font-weight: 650;
 }
 
@@ -218,15 +438,20 @@ body {
 
 .field input[type="number"] {
   padding: 10px 12px;
-  border-radius: 12px;
-  border: 1px solid var(--border);
-  background: rgba(0, 0, 0, 0.18);
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  background:
+    radial-gradient(700px 200px at var(--mx) var(--my), var(--spec2), transparent 68%) padding-box,
+    linear-gradient(180deg, var(--glass-2), var(--glass-3)) padding-box,
+    linear-gradient(135deg, var(--rim0), var(--rim1), var(--rim2)) border-box;
   color: var(--text);
   outline: none;
+  box-shadow: var(--inset);
 }
 
 .field input[type="number"]:focus-visible {
-  border-color: rgba(110, 231, 255, 0.55);
+  border-color: transparent;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent), var(--inset);
 }
 
 .field.check {
@@ -240,6 +465,7 @@ body {
 .field.check input[type="checkbox"] {
   width: 18px;
   height: 18px;
+  accent-color: var(--primary);
 }
 
 .note {
@@ -274,19 +500,39 @@ body {
   margin: 0;
   padding: 12px;
   border-radius: 12px;
-  background: rgba(0, 0, 0, 0.18);
-  border: 1px solid rgba(255, 255, 255, 0.10);
-  color: rgba(255, 255, 255, 0.84);
+  border: 1px solid transparent;
+  background:
+    radial-gradient(800px 260px at var(--mx) var(--my), var(--spec2), transparent 70%) padding-box,
+    linear-gradient(180deg, var(--glass-2), var(--glass-3)) padding-box,
+    linear-gradient(135deg, var(--rim0), var(--rim1), var(--rim2)) border-box;
+  color: var(--text);
+  color: color-mix(in srgb, var(--text) 86%, transparent);
   min-height: 120px;
   max-height: 260px;
   overflow: auto;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
   font-size: 12.5px;
   line-height: 1.45;
+  box-shadow: var(--inset);
 }
 
 .footer {
   margin-top: 10px;
   color: var(--muted-2);
   font-size: 13px;
+}
+
+@supports selector(::-webkit-scrollbar) {
+  .log::-webkit-scrollbar {
+    width: 10px;
+  }
+  .log::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, var(--border) 70%, transparent);
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  .log::-webkit-scrollbar-track {
+    background: transparent;
+  }
 }

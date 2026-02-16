@@ -202,7 +202,7 @@ function itemToRectInViewport(item, viewport) {
   const width = Math.max(0, (item.width || 0) * scaleX);
   const height = Math.max(0, fontHeight);
 
-  // viewport coords: origin top-left, y down
+  
   const x0 = x;
   const y0 = y - height;
   const x1 = x0 + width;
@@ -212,9 +212,7 @@ function itemToRectInViewport(item, viewport) {
 }
 
 async function findEdgeTextRects(pdfjsPage, viewport, pageWidth, pageHeight) {
-  // Simple, robust watermark detection:
-  // Body content = text starting from LEFT side of page (x < 50%)
-  // Watermark = small text in right half, BELOW all left-side content
+
   const MAX_CHARS = 40;
 
   const scale = viewport.scale || 1;
@@ -230,9 +228,7 @@ async function findEdgeTextRects(pdfjsPage, viewport, pageWidth, pageHeight) {
     })
     .filter(({ rect }) => Number.isFinite(rect.x0) && Number.isFinite(rect.y0) && rect.x1 > rect.x0);
 
-  // Find the bottom of the last LEFT-SIDE text (real body content).
-  // Body content always starts from the left half of the page.
-  // Watermarks are always on the right side.
+
   const halfX = pageWidth * 0.50;
   let lastLeftTextY = 0;
   for (const { rect } of items) {
@@ -248,10 +244,9 @@ async function findEdgeTextRects(pdfjsPage, viewport, pageWidth, pageHeight) {
     const compactLen = text.replace(/\s+/g, "").length;
     if (compactLen === 0 || compactLen > MAX_CHARS) continue;
 
-    // Must be in right half of page
+
     if (rect.x0 < halfX) continue;
 
-    // Must be BELOW all left-side content (watermark is at the end)
     if (rect.y0 < lastLeftTextY) continue;
 
     const padded = clampRectToPage(
@@ -271,42 +266,36 @@ async function cleanPdf(file, options) {
 
   logLine("Loading PDF…");
 
-  // Use pdf.js to render pages — this is the only way to truly remove
-  // content like PyMuPDF's redaction.  We render each page to a canvas,
-  // white-out the watermark area at the pixel level, then rebuild a new
-  // PDF from the rendered images.
-  const RENDER_SCALE = 3; // high-quality rendering (216 DPI)
+ 
+  const RENDER_SCALE = 3; 
 
   const pdfjsDoc = await pdfjsLib.getDocument({ data: inputBytes }).promise;
   const numPages = pdfjsDoc.numPages;
   logLine(`Pages: ${numPages}`);
 
-  // Create a brand-new output PDF
+ 
   const outDoc = await PDFDocument.create();
 
   for (let i = 1; i <= numPages; i++) {
     const pdfjsPage = await pdfjsDoc.getPage(i);
 
-    // Get the original page size (in PDF points)
-    const origVp = pdfjsPage.getViewport({ scale: 1 });
-    const pageW = origVp.width;   // points
-    const pageH = origVp.height;  // points
 
-    // Render at higher resolution for quality
+    const origVp = pdfjsPage.getViewport({ scale: 1 });
+    const pageW = origVp.width;   
+    const pageH = origVp.height;  
+
+   
     const viewport = pdfjsPage.getViewport({ scale: RENDER_SCALE });
     const canvas = document.createElement("canvas");
     canvas.width  = viewport.width;
     canvas.height = viewport.height;
     const ctx = canvas.getContext("2d");
 
-    // White background (some PDFs have transparent backgrounds)
     ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Render the full page onto the canvas
     await pdfjsPage.render({ canvasContext: ctx, viewport }).promise;
 
-    // ---- Clean bottom-right area (canvas coords: origin top-left, same as PyMuPDF) ----
     if (options.boxWidth > 0 && options.boxHeight > 0) {
       const bw = options.boxWidth  * RENDER_SCALE;
       const bh = options.boxHeight * RENDER_SCALE;
@@ -315,7 +304,6 @@ async function cleanPdf(file, options) {
       logLine(`Page ${i}: Cleaned bottom-right ${options.boxWidth}×${options.boxHeight} pt`);
     }
 
-    // ---- Clean small right-edge text (same heuristic as before) ----
     if (options.removeEdgeText) {
       try {
         const rects = await findEdgeTextRects(
@@ -334,14 +322,12 @@ async function cleanPdf(file, options) {
       }
     }
 
-    // ---- Convert canvas → JPEG bytes → embed in new PDF ----
     const jpegBlob = await new Promise((resolve) =>
       canvas.toBlob(resolve, "image/jpeg", 0.92),
     );
     const jpegBytes = new Uint8Array(await jpegBlob.arrayBuffer());
     const img = await outDoc.embedJpg(jpegBytes);
 
-    // Add a page with the original PDF dimensions and draw the image
     const page = outDoc.addPage([pageW, pageH]);
     page.drawImage(img, {
       x: 0,
@@ -455,5 +441,69 @@ els.dropzone.addEventListener("drop", (e) => {
   const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
   acceptFileFromDrop(file);
 });
+
+
+{
+  const rootStyle = document.documentElement.style;
+  const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)");
+
+  const DEFAULT_X = 50;
+  const DEFAULT_Y = 20;
+
+  let raf = 0;
+  let x = DEFAULT_X;
+  let y = DEFAULT_Y;
+  let targetX = DEFAULT_X;
+  let targetY = DEFAULT_Y;
+
+  function clamp01(n) {
+    return Math.min(1, Math.max(0, n));
+  }
+
+  function tick() {
+    raf = 0;
+    if (reduceMotion?.matches) return;
+
+    x += (targetX - x) * 0.14;
+    y += (targetY - y) * 0.14;
+
+    rootStyle.setProperty("--mx", `${x.toFixed(2)}%`);
+    rootStyle.setProperty("--my", `${y.toFixed(2)}%`);
+
+    if (Math.abs(targetX - x) > 0.01 || Math.abs(targetY - y) > 0.01) {
+      raf = requestAnimationFrame(tick);
+    }
+  }
+
+  function schedule() {
+    if (raf) return;
+    raf = requestAnimationFrame(tick);
+  }
+
+  window.addEventListener(
+    "pointermove",
+    (e) => {
+      if (reduceMotion?.matches) return;
+      const w = Math.max(1, window.innerWidth);
+      const h = Math.max(1, window.innerHeight);
+      targetX = clamp01(e.clientX / w) * 100;
+      targetY = clamp01(e.clientY / h) * 100;
+      schedule();
+    },
+    { passive: true },
+  );
+
+  function reset() {
+    targetX = DEFAULT_X;
+    targetY = DEFAULT_Y;
+    schedule();
+  }
+
+  rootStyle.setProperty("--mx", `${DEFAULT_X}%`);
+  rootStyle.setProperty("--my", `${DEFAULT_Y}%`);
+
+  document.addEventListener("mouseleave", reset);
+  window.addEventListener("blur", reset);
+}
 
 logLine("Ready. Select a PDF to begin.");
