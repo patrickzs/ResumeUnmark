@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ResumeUnmark (Web)</title>
+  <meta name="description" content="Clean bottom-right watermarks from PDFs locally in your browser. No uploads." />
+  <link rel="stylesheet" href="./style.css" />
+</head>
+
+<body>
+  <main class="wrap">
+    <header class="header">
+      <h1>ResumeUnmark</h1>
+      <p class="sub">
+        Drop a PDF, clean it locally in your browser, then it downloads automatically.
+        <span class="pill">No uploads</span>
+      </p>
+    </header>
+
+    <section class="card">
+      <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Drop a PDF here or choose a file">
+        <div class="drop-inner">
+          <div class="drop-title">Drag &amp; drop a PDF</div>
+          <div class="drop-hint">or</div>
+          <label class="btn" for="fileInput">Choose file</label>
+          <input id="fileInput" type="file" accept="application/pdf,.pdf" hidden />
+          <div id="dropFileInfo" class="drop-file" hidden>
+            <div class="drop-file-label">Selected</div>
+            <div id="dropFileName" class="drop-file-name"></div>
+            <div id="dropFileMeta" class="drop-file-meta"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
+        <button id="cleanBtn" class="btn primary" type="button" disabled>Clean &amp; Download</button>
+        <button id="clearBtn" class="btn" type="button" disabled>Clear</button>
+      </div>
+
+      <details class="advanced">
+        <summary>Advanced options</summary>
+        <div class="grid">
+          <label class="field">
+            <span>Bottom-right box width (pt)</span>
+            <input id="boxWidth" type="number" min="0" step="1" value="200" />
+          </label>
+          <label class="field">
+            <span>Bottom-right box height (pt)</span>
+            <input id="boxHeight" type="number" min="0" step="1" value="70" />
+          </label>
+          <label class="field check">
+            <input id="removeEdgeText" type="checkbox" checked />
+            <span>Also remove small right-edge text (experimental)</span>
+          </label>
+        </div>
+        <p class="note">
+          If your resume has content near the far-right margin (right column / sidebar), turn off the experimental
+          option.
+        </p>
+      </details>
+    </section>
+
+    <section class="card">
+      <div class="status-head">
+        <div class="status-title">Status</div>
+        <div id="fileLabel" class="file-label">No file selected</div>
+      </div>
+      <pre id="log" class="log" aria-live="polite"></pre>
+    </section>
+
+    <footer class="footer">
+      <p>
+        Tip: For multiple PDFs, process one at a time (browsers may block many automatic downloads).
+      </p>
+    </footer>
+  </main>
+
+  <script type="module" src="./app.js"></script>
+</body>
+
+</html>

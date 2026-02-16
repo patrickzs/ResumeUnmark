@@ -3,6 +3,84 @@ import os
 import sys
 
 
+# --- Optional configuration (tune if needed) ---
+# Bottom-right area to always remove on every page.
+REMOVE_WIDTH = 200
+REMOVE_HEIGHT = 70
+
+# Extra: remove small, isolated text near the right edge (common for "© site.com" watermarks).
+EDGE_WATERMARK_MIN_RIGHT_RATIO = 0.70  # candidate starts in right-most 30% of the page
+EDGE_WATERMARK_MIN_DOWN_RATIO = 0.35   # ignore top header area
+EDGE_WATERMARK_MAX_CHARS = 40          # only small text blocks/lines
+EDGE_WATERMARK_MIN_DISTANCE = 25.0     # must be isolated from main content (points)
+EDGE_WATERMARK_PADDING = 2.0           # padding around redaction rects (points)
+
+
+def _clamp_rect_to_page(rect: fitz.Rect, page_rect: fitz.Rect) -> fitz.Rect:
+    return fitz.Rect(
+        max(page_rect.x0, rect.x0),
+        max(page_rect.y0, rect.y0),
+        min(page_rect.x1, rect.x1),
+        min(page_rect.y1, rect.y1),
+    )
+
+
+def _rect_distance(a: fitz.Rect, b: fitz.Rect) -> float:
+    dx = max(0.0, max(a.x0 - b.x1, b.x0 - a.x1))
+    dy = max(0.0, max(a.y0 - b.y1, b.y0 - a.y1))
+    return (dx * dx + dy * dy) ** 0.5
+
+
+def _find_edge_text_watermark_rects(
+    page: fitz.Page,
+    *,
+    min_right_ratio: float = EDGE_WATERMARK_MIN_RIGHT_RATIO,
+    min_down_ratio: float = EDGE_WATERMARK_MIN_DOWN_RATIO,
+    max_chars: int = EDGE_WATERMARK_MAX_CHARS,
+    min_distance: float = EDGE_WATERMARK_MIN_DISTANCE,
+    padding: float = EDGE_WATERMARK_PADDING,
+) -> list[fitz.Rect]:
+    """
+    Finds small "edge/footer" text blocks in the right-side whitespace and returns
+    their bounding boxes for redaction, regardless of text content.
+
+    Heuristic: redact small text blocks that are (a) on the right side, (b) below the
+    header area, and (c) sufficiently far from the main content blocks.
+    """
+    page_rect = page.rect
+    min_x = page_rect.width * min_right_ratio
+    min_y = page_rect.height * min_down_ratio
+
+    blocks = page.get_text("blocks") or []
+    text_blocks: list[tuple[fitz.Rect, str]] = []
+    for b in blocks:
+        if len(b) < 7:
+            continue
+        x0, y0, x1, y1, text, _block_no, block_type = b[:7]
+        if block_type != 0:
+            continue
+        block_rect = fitz.Rect(x0, y0, x1, y1)
+        text_blocks.append((block_rect, (text or "").strip()))
+
+    body_rects: list[fitz.Rect] = [r for r, t in text_blocks if len(t) >= 60]
+
+    redaction_rects: list[fitz.Rect] = []
+    for r, t in text_blocks:
+        if not t or len(t) > max_chars:
+            continue
+        if r.x0 < min_x or r.y0 < min_y:
+            continue
+        if body_rects:
+            nearest = min(_rect_distance(r, br) for br in body_rects)
+            if nearest < min_distance:
+                continue
+
+        padded_rect = fitz.Rect(r.x0 - padding, r.y0 - padding, r.x1 + padding, r.y1 + padding)
+        redaction_rects.append(_clamp_rect_to_page(padded_rect, page_rect))
+
+    return redaction_rects
+
+
 def clean_pdf(input_file):
     """
     CLEANS THE BOTTOM-RIGHT CORNER OF A PDF.
@@ -13,16 +91,8 @@ def clean_pdf(input_file):
         doc = fitz.open(input_file)
         modified = False
 
-        # --- CONFIGURATION (Adjust these if needed) ---
-        # 1 point = 1/72 inch
-        # 200 points ~ 2.7 inches wide
-        # 70 points ~ 1 inch tall
-        # These values target a standard bottom-right watermark
-        REMOVE_WIDTH = 200
-        REMOVE_HEIGHT = 70
-        # -----------------------------------------------
-
-        for page in doc:
+        for page_index in range(doc.page_count):
+            page = doc.load_page(page_index)
             rect = page.rect
             width = rect.width
             height = rect.height
@@ -36,13 +106,17 @@ def clean_pdf(input_file):
                 height                   # y1 (bottom edge of page)
             )
 
-            # Create a "Redaction" annotation (White Box)
-            # fill=(1, 1, 1) means White color
-            page.add_redact_annot(target_area, fill=(1, 1, 1))
-            modified = True
+            redaction_rects = [target_area]
+            redaction_rects.extend(_find_edge_text_watermark_rects(page))
 
-            # Apply the redaction effectively removing content underneath
+            for redact_rect in redaction_rects:
+                # Create a "Redaction" annotation (White Box)
+                # fill=(1, 1, 1) means White color
+                page.add_redact_annot(redact_rect, fill=(1, 1, 1))
+
+            # Apply the redactions, effectively removing content underneath
             page.apply_redactions()
+            modified = True
 
         if modified:
             base, ext = os.path.splitext(input_file)
