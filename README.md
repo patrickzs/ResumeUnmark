@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="docs/assets/ResumeUnmark_icon.png" width="128" />
+
 # ResumeUnmark
 
 **Remove bottom-right watermarks and isolated right-edge text from PDFs — locally, fast, and privacy-first.**
