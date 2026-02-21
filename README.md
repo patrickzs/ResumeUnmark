@@ -91,7 +91,7 @@ pip install -r requirements.txt
 
 The easiest way to use ResumeUnmark is via the web interface. It runs entirely in your browser—no files are uploaded to any server.
 
-1. Go to **[ResumeUnmark Web](https://patrickzs.github.io/ResumeUnmark/)**.
+1. Go to **[ResumeUnmark Web](https://patruxs.github.io/ResumeUnmark/)**.
 2. **Drag & Drop** your PDF (or click "Choose file").
 3. Click **Clean & Download**.
 4. Save your new `_clean.pdf` file!
